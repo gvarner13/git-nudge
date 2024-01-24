@@ -1,6 +1,9 @@
 import { Hono } from "hono";
+import { Resend } from "resend";
 
 const app = new Hono();
+
+const resend = new Resend("re_123456789");
 
 app.get("/", async (c) => {
   const token = "token-here"; // Replace with your token
@@ -31,8 +34,16 @@ app.get("/", async (c) => {
     body: JSON.stringify({ query }),
   });
 
-  const data = await response.json();
-  return c.json(data);
+  const gitData = await response.json();
+
+  const { data, error } = await resend.emails.send({
+    from: "Acme <gitnudge@updates.garyvarner.me>",
+    to: ["garysarahvarner@gmail.com"],
+    subject: "Hello World",
+    html: "<strong>It works!</strong>",
+  });
+
+  return c.json(gitData);
   // return c.text('Hello Hono!')
 });
 
