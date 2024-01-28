@@ -1,29 +1,42 @@
 import { Hono } from "hono";
 import { Resend } from "resend";
 
-const app = new Hono();
+type Bindings = {
+  RESEND_TOKEN: string;
+  GITHUB_TOKEN: string;
+};
 
-const resend = new Resend("re_123456789");
+const app = new Hono<{ Bindings: Bindings }>();
 
 app.get("/", async (c) => {
-  const token = "token-here"; // Replace with your token
+  // console.log(c.env.RESEND_TOKEN);
+  const resend = new Resend(c.env.RESEND_TOKEN);
+  const token = c.env.GITHUB_TOKEN;
+  const username = "gvarner13";
+  // Calculate the start and end dates of the current week
+  const currentDate = new Date();
+  const firstDayOfWeek = currentDate.getDate() - currentDate.getDay();
+  const lastDayOfWeek = firstDayOfWeek + 6;
+  const startOfWeek = new Date(currentDate.setDate(firstDayOfWeek));
+  const endOfWeek = new Date(currentDate.setDate(lastDayOfWeek));
+
   const query = `
-      query {
-        user(login: "gvarner13") {
-          contributionsCollection {
-            contributionCalendar {
-              totalContributions
-              weeks {
-                contributionDays {
-                  date
-                  contributionCount
-                }
-              }
-            }
-          }
-        }
-      }
-    `;
+       query {
+         user(login: "${username}") {
+           contributionsCollection(from: "${startOfWeek.toISOString()}", to: "${endOfWeek.toISOString()}") {
+             contributionCalendar {
+               totalContributions
+               weeks {
+                 contributionDays {
+                   date
+                   contributionCount
+                 }
+               }
+             }
+           }
+         }
+       }
+     `;
 
   const response = await fetch("https://api.github.com/graphql", {
     method: "POST",
@@ -34,17 +47,20 @@ app.get("/", async (c) => {
     body: JSON.stringify({ query }),
   });
 
-  const gitData = await response.json();
+  const gitData: JSON = await response.json();
+  const totalContributions =
+    gitData.data.user.contributionsCollection.contributionCalendar
+      .totalContributions;
 
   const { data, error } = await resend.emails.send({
-    from: "Acme <gitnudge@updates.garyvarner.me>",
+    from: "Git Nudge <gitnudge@updates.garyvarner.me>",
     to: ["garysarahvarner@gmail.com"],
-    subject: "Hello World",
-    html: "<strong>It works!</strong>",
+    subject: "Weekly Update",
+    html: `You made <strong>${totalContributions}</strong> contributions this week 💪`,
   });
 
-  return c.json(gitData);
-  // return c.text('Hello Hono!')
+  // return c.json();
+  return c.text("Sup!");
 });
 
 export default app;
