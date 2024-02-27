@@ -9,7 +9,6 @@ type Bindings = {
 const app = new Hono<{ Bindings: Bindings }>();
 
 app.get("/", async (c) => {
-  // console.log(c.env.RESEND_TOKEN);
   const resend = new Resend(c.env.RESEND_TOKEN);
   const token = c.env.GITHUB_TOKEN;
   const username = "gvarner13";
@@ -38,26 +37,31 @@ app.get("/", async (c) => {
        }
      `;
 
-  const response = await fetch("https://api.github.com/graphql", {
-    method: "POST",
-    headers: {
-      Authorization: `bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query }),
-  });
+  try {
+    const response = await fetch("https://api.github.com/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `bearer ${token}`,
+        "User-Agent": username,
+      },
+      body: JSON.stringify({ query }),
+    });
 
-  const gitData: JSON = await response.json();
-  const totalContributions =
-    gitData.data.user.contributionsCollection.contributionCalendar
-      .totalContributions;
+    const gitData: JSON = await response.json();
+    const totalContributions =
+      gitData.data.user.contributionsCollection.contributionCalendar
+        .totalContributions;
 
-  const { data, error } = await resend.emails.send({
-    from: "Git Nudge <gitnudge@updates.garyvarner.me>",
-    to: ["garysarahvarner@gmail.com"],
-    subject: "Weekly Update",
-    html: `You made <strong>${totalContributions}</strong> contributions this week 💪`,
-  });
+    const { data, error } = await resend.emails.send({
+      from: "Git Nudge <gitnudge@updates.garyvarner.me>",
+      to: ["garysarahvarner@gmail.com"],
+      subject: "Weekly Update",
+      html: `You made <strong>${totalContributions}</strong> contributions this week 💪`,
+    });
+  } catch (error) {
+    console.log(error);
+  }
 
   // return c.json();
   return c.text("Sup!");
