@@ -28,6 +28,7 @@ app.get("/", async (c) => {
                weeks {
                  contributionDays {
                    date
+                   weekday
                    contributionCount
                  }
                }
