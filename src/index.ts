@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bearerAuth } from "hono/bearer-auth";
 import { Resend } from "resend";
 
 type Bindings = {
@@ -7,6 +8,10 @@ type Bindings = {
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
+
+const authToken = "gitnudgeisdope";
+
+app.use("*", bearerAuth({ token: authToken }));
 
 app.get("/", async (c) => {
   const resend = new Resend(c.env.RESEND_TOKEN);
