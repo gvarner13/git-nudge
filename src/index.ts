@@ -7,6 +7,19 @@ type Bindings = {
   GITHUB_TOKEN: string;
 };
 
+type GithubJSON = {
+  data: {
+    user: {
+      contributionsCollection: {
+        contributionCalendar: {
+          totalContributions: number;
+          weeks: Array<Object>;
+        };
+      };
+    };
+  };
+};
+
 const app = new Hono<{ Bindings: Bindings }>();
 
 const authToken = "gitnudgeisdope";
@@ -64,14 +77,14 @@ app.get("/", async (c) => {
       body: JSON.stringify({ query }),
     });
 
-    const gitData: JSON = await response.json();
+    const gitData: GithubJSON = await response.json();
     const totalContributions =
       gitData.data.user.contributionsCollection.contributionCalendar
         .totalContributions;
 
     const dayWithMaxContributions =
       gitData.data.user.contributionsCollection.contributionCalendar.weeks.reduce(
-        (maxDay, week) => {
+        (maxDay: any, week: { contributionDays: any[] }) => {
           return week.contributionDays.reduce((maxDay, day) => {
             return day.contributionCount > maxDay.contributionCount
               ? day
