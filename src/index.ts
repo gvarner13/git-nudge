@@ -1,10 +1,14 @@
 import { Hono } from "hono";
 import { bearerAuth } from "hono/bearer-auth";
 import { Resend } from "resend";
+import { createClient } from "@supabase/supabase-js";
+import { startOfWeek, endOfWeek, subDays, formatISO } from "date-fns";
 
 type Bindings = {
   RESEND_TOKEN: string;
   GITHUB_TOKEN: string;
+  SUPABASE_KEY: string;
+  SUPABASE_URL: string;
 };
 
 type GithubJSON = {
@@ -32,10 +36,12 @@ app.get("/", async (c) => {
   const username = "gvarner13";
   // Calculate the start and end dates of the current week
   const currentDate = new Date();
-  const firstDayOfWeek = currentDate.getDate() - currentDate.getDay();
-  const lastDayOfWeek = firstDayOfWeek + 6;
-  const startOfWeek = new Date(currentDate.setDate(firstDayOfWeek));
-  const endOfWeek = new Date(currentDate.setDate(lastDayOfWeek));
+  const firstDayOfWeek = startOfWeek(currentDate);
+  const lastDayOfWeek = subDays(endOfWeek(currentDate), 1);
+
+  const supabaseUrl = c.env.SUPABASE_URL;
+  const supabaseKey = c.env.SUPABASE_KEY;
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
   const gitDays = {
     0: "Sunday",
@@ -50,7 +56,9 @@ app.get("/", async (c) => {
   const query = `
        query {
          user(login: "${username}") {
-           contributionsCollection(from: "${startOfWeek.toISOString()}", to: "${endOfWeek.toISOString()}") {
+           contributionsCollection(from: "${formatISO(
+             firstDayOfWeek
+           )}", to: "${formatISO(lastDayOfWeek)}") {
              contributionCalendar {
                totalContributions
                weeks {
@@ -77,14 +85,15 @@ app.get("/", async (c) => {
       body: JSON.stringify({ query }),
     });
 
-    const gitData: GithubJSON = await response.json();
+    const gitData = (await response.json()) as GithubJSON;
+
     const totalContributions =
       gitData.data.user.contributionsCollection.contributionCalendar
         .totalContributions;
 
     const dayWithMaxContributions =
       gitData.data.user.contributionsCollection.contributionCalendar.weeks.reduce(
-        (maxDay: any, week: { contributionDays: any[] }) => {
+        (maxDay, week) => {
           return week.contributionDays.reduce((maxDay, day) => {
             return day.contributionCount > maxDay.contributionCount
               ? day
@@ -94,8 +103,6 @@ app.get("/", async (c) => {
         { contributionCount: -1 }
       );
 
-    console.log(dayWithMaxContributions);
-
     const { data, error } = await resend.emails.send({
       from: "Git Nudge <gitnudge@updates.garyvarner.me>",
       to: ["garysarahvarner@gmail.com"],
@@ -104,12 +111,16 @@ app.get("/", async (c) => {
         gitDays[dayWithMaxContributions.weekday]
       }.`,
     });
+
+    // const { count } = await supabase
+    //   .from("waitlist")
+    //   .select("*", { count: "exact", head: true });
+
+    return c.text("Sup!");
   } catch (error) {
     console.log(error);
+    return c.text("oops!");
   }
-
-  // return c.json();
-  return c.text("Sup!");
 });
 
 export default app;
