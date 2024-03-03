@@ -123,4 +123,9 @@ app.get("/", async (c) => {
   }
 });
 
+app.post("/nudge", async (c) => {
+  //using this for adding users
+  return c.text("Post coming soon");
+});
+
 export default app;
